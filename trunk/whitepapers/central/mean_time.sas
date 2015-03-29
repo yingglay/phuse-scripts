@@ -124,7 +124,7 @@ blockplot x=xc block=b_n / display=(values label) valuehalign=center label='54' 
                                      valueattrs=graphdata3 labelattrs=graphdata3;                                                       
 blockplot x=xc block=a_n / display=(values label) valuehalign=center label='0' repeatedvalues=true                          
                                      valueattrs=graphdata2 labelattrs=graphdata2;                                                                                                                                                                                         
-idebar / spacefill=false;                                                                                                      
+sidebar / spacefill=false;                                                                                                      
 discretelegend  'al' 'bl' 'cl' / title='Treatment Group: ' across=3;                                                          
 endsidebar;                                                                                                                     
 endlayout;                                                                                                                        
