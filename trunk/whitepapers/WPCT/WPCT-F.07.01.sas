@@ -43,7 +43,7 @@
     MAX_BOXES_PER_PAGE: Maximum number of boxes to display per plot page (see specs at top)  
   ***/
     
-    %let phuse_path = U:\My Documents\My Sas Files\CSS\sasmacros;
+    %let phuse_path = C:\_Offline_\CSS\phuse_code\whitepapers\utilities;
     %let path_delim = \;
 
     %*--- ACCESS PhUSE/CSS test data, and create work copy with prefix "CSS_" ---*;
