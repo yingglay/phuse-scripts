@@ -7,10 +7,28 @@ Starting Point is the PhUSE Good Programming Practice Guide:
 
 DETAILS
 
-• keep it simple. aggressively
+• keep it simple. aggressively.
 .. before you add in complexity: stop, assess whether this is really needed, 
-   and justify the gain in functionality vs. the costs of complexity
-.. before you finish your code: stop, review and assess whether it can be simpler without loss
+.. and justify the gain in functionality vs. the costs of complexity
+.. before you finish your code: stop, review and assess whether it can be simpler without meaningful loss
+
+• but not too simple.
+.. all variable names, symbol name, macro names must be meaningful
+.. long descriptive names are better for readability than cryptic names
+.. EG, looping
+.. (1) never user one-letter variables to loop (e.g., i j k ...)
+.. (2) looping and parsing delimited strings (in base SAS or macro language)
+.. .. it is often necessary to loop through values, or parse a delimited string and process each piece
+.. .. EG: process each parameter in a list of lab parameters, or each var in a list of variables
+.. .. CSS programs should uniformly use an -IDX, -NXT convention for such processing
+.. .. .. -IDX suffix for the indexing variable (or macro symbol)
+.. .. .. e.g., See %assert_var_exist() for example of looping through Data sets and Variable names.
+               DIDX indexes data set name index, and VIDX indexes variable name index
+               This makes the code easy to read!
+.. .. .. -NXT suffix for var (or symbol) that holds the next value to process from a deliminted list
+.. .. .. e.g., See %assert_var_exist() for example of looping through Data sets and Variable names.
+               DNXT holds the next data set name, and VNXT holds the next variable name
+               This makes the code easy to read!
 
 • all WORK data sets begin with prefix CSS_
 .. and DO NOT overwrite data sets that could help the user debug their data & changes
@@ -20,9 +38,15 @@ DETAILS
 .. "TO DO" placeholders within the program can also be helpful to help contributors properly incorporate new code
 • Header: see notes on "Comments", below
 • Spacing and alignment
-.. align code with space characters, never tabs
-.. consistent number of spaces to indent within a single program: 2, 3 or 4
-..  maintain spacing in a program. if you edit a program with 2-space alignment, stick with 2-space alignment
+.. align code with space characters, never tabs.
+.. .. set your editor to replace tabs with spaces.
+
+.. consistent number of spaces to indent within a single program.
+.. 2-space indents are preferred (not more).
+.. .. see Explanations (a.k.a. Comments), below.
+.. .. indenting helps group related blocks of code, so 2-space indenting allows more indenting
+.. maintain spacing in a program. 
+.. .. e.g., if you edit a program with 2-space alignment, stick with 2-space alignment
 
 • capitalization
 .. SAS is not a case-sensitive language
@@ -41,6 +65,10 @@ DETAILS
 • macro names should be meaningful, even if long
 .. prefix indicates "type", e.g., asset_*, util_*, etc.
 .. when reading the macro name in calling code, the purpose should be clear
+.. adhere to SAS NAMING CONVENTIONS whenever possible
+.. NO:  %assert_dse()
+.. NO:  %assert_dset_exists()
+.. YES: %assert_dset_exist(), to match the grammar of SAS elements exist(), fexist(), symexist(), etc.
 
 • use temporary macro NULL to wrap macro logic such as %IF in open code
 .. Example:
@@ -49,7 +77,8 @@ DETAILS
       %mend null;
       %null;
 
-• see "Conventions for macro parameters", below
+
+• see "Conventions for macro parameter names", below
 • OK to assume that one-level data sets are in WORK
 .. without checking for USER libname & system option
 .. but keep in mind as potential bug
@@ -60,31 +89,47 @@ DETAILS
 .. ERROR: (MACRO-NAME-UPCASE) Error detected current context. Processing should stop as soon as possible.
 .. for ASSERT MACROS, see additional details, below
 
+• macros use Quoting intelligently
+.. use Q versions of macro functions whenever processing unknown text.
+.. EG: then following macro FAILS for some values of VARS, unless you use the %Qscan() function
+      %macro null(vars);
+        %if %scan(&vars, 1) = STDDEV %then %put Note: Calculating Standard Deviation.;
+        %else %put Note: Calculating something else.;
+      %mend null;
+      %null(OR);
+
 • macros clean up after themselves
 .. delete temp data sets before exiting
 .. reset any modifications before exiting: system options, graphics options, ODS destinations
 
 • tests
-.. every test is explicitly uses specific data
+.. every test explicitly uses specific data
+.. (1) this can be test data created specifically within the test program for specific tests, or
+.. (2) centralized PhUSE/CSS test data available for multiple tests
+.. ..  for (2), central data sets must include a QLTSTID var "CSS/PhUSE Qualification Test ID"
+.. ..  once some test uses, e.g., QLTSTID = "TEST-01-01" obs, the value of QLTSTID
+.. ..  (a) should not change for these obs, and
+.. ..  (b) any new obs added to the same central data set must have a new value for QLTSTID
 
 
 Explanations (a.k.a. Comments)
 ------------------------------
 • Comments must be meaningful and easy to maintain
+.. No extra characters to draw boxes around comments (see header note, below)
 .. Explain what the code needs to achieve
 .. Explain decisions in the code
 .. .. why keep or drop certain vars?
 .. .. why are the merge variables or by variables correct?
 .. .. why is a particular algorithm correct? what do the elements represent?
-.. No extra characters to draw boxes around comments (see header note, below)
 
 • Comment types must be used intentionally
 .. Header block between starting line (/***) and ending line (***/)
-.. /*   */    style comments for blocks of explanation, like with the header
-.. %*   *;    style comments to explain macro statements
-.. *--- ---*; comment statements as single-line explanations
-.. Comments visually group blocks of related code, which is indented one additional step
-.. Examples (consistent 3-space indentation)
+.. /***   ***/    style comments for blocks of explanation, like with the header
+.. %*---   ---*;  style comments to explain macro statements
+.. *---   ---*;   comment statements as single-line explanations
+
+• Comments visually group blocks of related code, which are indented one additional step
+.. Examples (consistent 2-space indentation)
    *--- Single-line comment to explain the next, related steps ---*;
       all code that accomplishes this objective is indented to this level
 
@@ -100,6 +145,21 @@ Explanations (a.k.a. Comments)
    %*--- OK, now I am prepared to call my utility macro ---*;
       %get_the_job_done(ds=my_data)
 
+• Comments declare the names of any symbols that a macro call creates. See also "TEMPLATE programs", below.
+
+TEMPLATE programs:
+-----------------
+• Use PhUSE/CSS test data
+• Access PhUSE/CSS test data via %UTIL_ACCESS_TEST_DATA
+• Use global symbol &CONTINUE with values 0 (No, there's a problem) and 1 (Yes, continue) to monitor success of processing
+• Use assertion macro %ASSERT_CONTINUE to interrupt processing if a problem occurs (force syntax-checking mode if error indicated)
+• Declare the symbols that utility programs create. E.g., see these macro calls in template program WPCT-F.07.01.sas
+  %*--- Parameters: Number (&PARAMCD_N), Names (&PARAMCD_NAM1 ...) and Labels (&PARAMCD_LAB1 ...) ---*;
+    %util_labels_from_var(css_anadata, paramcd, param)
+
+  %*--- Number of planned treatments: &TRTN ---*;
+    %util_count_unique_values(css_anadata, trtp, trtn)
+
 
 ASSERT macros
 -------------
@@ -107,17 +167,17 @@ ASSERT macros
 • use and return a %local OK symbol for in-line macros
 • declare %local and %global symbols explicitly
 • always return at least one message to the log, either
-... NOTE: (MACRO-NAME-UPCASE) Result is PASS. Optional confirmation of the successful assertion.
-... or...
-... ERROR: (MACRO-NAME-UPCASE) Result is FAIL. Clear explanation of failed assertion.
+.. NOTE: (MACRO-NAME-UPCASE) Result is PASS. Optional confirmation of the successful assertion.
+.. or...
+.. ERROR: (MACRO-NAME-UPCASE) Result is FAIL. Clear explanation of failed assertion.
 
 
 UTIL macros
 -----------
 
 
-Conventions for macro parameters:
----------------------------------
+Conventions for macro parameter names:
+--------------------------------------
 
 Symbol    Description                                      Comments                            Programs used in
 --------- ----------------------------------------------   -----------------------             ----------------------------------
