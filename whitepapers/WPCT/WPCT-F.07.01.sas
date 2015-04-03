@@ -132,7 +132,9 @@
 
     %let CONTINUE = %assert_depend(OS=%str(AIX,WIN,HP IPF),
                                    SASV=9.2+,
-                                   vars=%str(css_anadata : &ana_variables)
+                                   vars=%str(css_anadata : &ana_variables),
+                                   macros=assert_continue util_labels_from_var util_count_unique_values 
+                                          util_value_format util_prep_shewhart_data
                                   );
 
     %assert_continue(Following assertion of dependencies)
