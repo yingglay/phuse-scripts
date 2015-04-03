@@ -112,7 +112,7 @@
       %let idx=1;
       %do %while (%qscan(&macros,&idx,%str( )) ne );
         %let nxt=%qscan(&macros,&idx,%str( ));
-         %if not %util_autocallpath(&nxt) %then %do;
+         %if not %assert_macro_exist(&nxt) %then %do;
           %let OK = 0;
           %put ERROR: (ASSERT_DEPEND) Macro %upcase(&nxt) is required but not in the AUTOCALL path(s).;
          %end;

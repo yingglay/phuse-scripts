@@ -8,7 +8,7 @@
 
     Description: Boxplot of AVAL by ATPTN, AVISITN and TRTPN. See plot footnote for boxplot details.
     Dataset:     ADVS
-    Variables:   USUBJID SAFFL TRTP TRTPN PARAM PARAMCD AVAL ANL: AVISIT AVISITN ATPT ATPTN
+    Variables:   USUBJID SAFFL TRTP TRTPN PARAM PARAMCD AVAL ANRLO ANRHI ANL: AVISIT AVISITN ATPT ATPTN
     Filter:      Measurements flagged for analysis within safety population
                  WHERE SAFFL='Y' and ANL01FL='Y'
     Notes:       • Program box plots all visits, ordered by AVISITN, with maximum of 20 boxes on a page
@@ -20,10 +20,30 @@
                  • If your treatment names are too long for the summary table,
                    Change TRTP in the input data, and add a footnote that explains your short Tx codes
     TO DO:
+      • Complete and confirm specifications (see Outliers & Reference limit discussions, below)
+      • Move confirmed specifications to a separate document that can be referenced by the Repository Interface
+          http://www.phusewiki.org/wiki/index.php?title=Standard_Script_Index
       • Set uniform y-axis scale for all pages of a plot, based on MAX measured value for PARAMCD and ATPTN
-      • Color outliers RED: Indicate measures that are OUTSIDE NORMAL RANGES
-      • Color outliers RED: Update specifications and dependency checking accordingly
-                            EG, to include ANRLO and ANRHI in dependencies and program logic
+      • Color outliers RED:
+          - Confirm outlier logic as either
+              (1) outside normal ranges, 
+              (2) outside interquartile ranges, or
+              (3) user option
+          - Indicate measures that are OUTSIDE NORMAL RANGES
+          - Update specifications and dependency checking accordingly
+            EG, to include ANRLO and ANRHI in dependencies and program logic
+      • Reference limit lines. Provide options for several scenarios (see explanation in White Paper):
+          - NONE:    DEFAULT. no reference lines
+          - UNIFORM: reference limits are uniform for entire population
+                     only display uniform ref lines, to match outlier logic, otherwise no lines
+                     NB: preferred alternative to default (NONE)
+          - NARROW:  reference limits vary across selected population (e.g., based on some demographic or lab)
+                     display reference lines for the narrowest interval
+                     EG: highest of the low limits, lowest of the high limits
+                     NB: discourage, since creates confusion for reviewers
+          - ALL:     reference limits vary across selected population (e.g., based on some demographic or lab)
+                     display all reference lines, pairing low/high limits by color and line type
+                     NB: discourage, since creates confusion for reviewers
 
 ***/
 
@@ -31,8 +51,9 @@
 
   /*** USER SETTINGS
     PHUSE_PATH: REQUIRED.
-      Location from which to compile PhUSE/CSS macros. Quoted as needed.
-      These templates require the corresponding PhUSE/CSS macro library.
+      These templates require the PhUSE/CSS macro utilities:
+        https://github.com/phuse-org/phuse-scripts/tree/master/whitepapers/utilities
+      User must ensure that SAS can find PhUSE/CSS macros in the SASAUTOS path (see EXECUTE ONE TIME, below)
 
     LIBNAME statement, assign only as needed to point to your data
       M_LB: REQUIRED. Libname containing ADaM data (measurements data such as ADVS)
@@ -42,12 +63,18 @@
 
     MAX_BOXES_PER_PAGE: Maximum number of boxes to display per plot page (see specs at top)  
   ***/
-    
-    %let phuse_path = C:\_Offline_\CSS\phuse_code\whitepapers\utilities;
-    %let path_delim = \;
+
+
+    /*** EXECUTE ONE TIME only as needed
+
+      Ensure PhUSE/CSS utilities are in the AUTOCALL path
+      NB: This line is not necessary if PhUSE/CSS utilities are in your default AUTOCALL paths
+
+      OPTIONS sasautos=(%sysfunc(getoption(sasautos)) "C:\_Offline_\CSS\phuse_code\whitepapers\utilities");
+
+    ***/
 
     %*--- ACCESS PhUSE/CSS test data, and create work copy with prefix "CSS_" ---*;
-      %include "&phuse_path&path_delim.util_access_test_data.sas";
       %util_access_test_data(advs)
 
     *--- USER SUBSET of data, to limit number of box plot outputs, and to shorten Tx labels ---*;
@@ -90,17 +117,12 @@
     For details, see specifications at top
   ***/
 
-    %*--- Store current SASAUTOS setting in &INIT_SASAUTOS, to append PHUSE_PATH only one time, below ---*;
-      %include "&phuse_path&path_delim.util_init_sasautos.sas";
-      %util_init_sasautos;
-
     options nocenter mautosource mrecall mprint msglevel=I mergenoby=WARN
-            syntaxcheck dmssynchk obs=MAX
-            ls=max ps=max sasautos=(&init_sasautos "&phuse_path");
+            syntaxcheck dmssynchk obs=MAX ls=max ps=max;
     goptions reset=all;
     ods show;
 
-    %let ana_variables = USUBJID SAFFL TRTP TRTPN PARAM PARAMCD AVAL &a_fl AVISIT AVISITN ATPT ATPTN;
+    %let ana_variables = USUBJID SAFFL TRTP TRTPN PARAM PARAMCD AVAL ANRLO ANRHI &a_fl AVISIT AVISITN ATPT ATPTN;
 
     *--- Restrict analysis to SAFETY POP and ANALYSIS RECORDS (&a_fl) ---*;
       data css_anadata;
@@ -136,7 +158,7 @@
       %util_count_unique_values(css_anadata, trtp, trtn)
 
 
-  /*** BOXPLOT for each parameter included in analysis data
+  /*** BOXPLOT for each PARAMETER and ANALYSIS TIMEPOINT in selected data
     PROC SHEWHART creates the summary table of stats from "block" (stats) variables
                   and reads "phases" (visits) from a special _PHASE_ variable
 
@@ -172,6 +194,17 @@
 
           %*--- Create format string to display MEAN and STDDEV to default sig-digs: &UTIL_VALUE_FORMAT ---*;
             %util_value_format(css_nexttimept, aval)
+
+
+
+          /*** TO DO
+            With just these data selected for analysis and display
+            - Y-AXIS SCALE:       Determine uniform min/max for y-axis
+            - REF LIMIT OUTLIERS: Determine outlier values, based on Reference limits
+            - REF LIMIT LINES:    Determine whether to include reference lines
+          ***/
+
+
 
           *--- Calculate summary statistics, and merge onto measurement data for use as "block" variables ---*;
             proc summary data=css_nexttimept noprint;
@@ -215,8 +248,6 @@
             footnote1 justify=left height=1.0 'Box plot type=schematic, the box shows median, interquartile range (IQR, edge of the bar), min and max';
             footnote2 justify=left height=1.0 'within 1.5 IQR below 25% and above 75% (ends of the whisker). Values outside the 1.5 IQR below 25% and';
             footnote3 justify=left height=1.0 'above 75% are shown as outliers. Means plotted as different symbols by treatments.';
-            symbol1   value=circle height=1.0 color=green;
-            symbol2   value=star   height=1.0 color=red;
             axis1     value=none label=none major=none minor=none;
 
 
@@ -241,6 +272,8 @@
                          blocklabtype=scaled
                          blockrep
                          haxis=axis1
+                         idsymbol=dot
+                         idcolor=red
                          nolimits
                          readphase = all
                          phaseref
